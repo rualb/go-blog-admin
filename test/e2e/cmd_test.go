@@ -30,6 +30,7 @@ func setup() {
 		for _, x := range []any{
 			&service.UserAccount{},
 			&service.VaultKey{},
+			&service.BlogPost{},
 		} {
 			if err := db.AutoMigrate(x); err != nil {
 				log.Fatalf("Migration: %v", err)
