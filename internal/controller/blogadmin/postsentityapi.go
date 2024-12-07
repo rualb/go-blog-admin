@@ -288,7 +288,6 @@ func (x *PostsEntityAPIController) responseDTOAsAPI() (err error) {
 	meta := &dto.Meta
 	output := &dto.Output
 	c := x.webCtxt
-	controller.CsrfToHeader(c)
 
 	if meta.Status == 0 {
 		meta.Status = http.StatusOK

@@ -113,7 +113,7 @@ type tmplRenderer struct {
 
 func (x *tmplRenderer) Render(w io.Writer, name string, data any, c echo.Context) error {
 
-	if name == "blog-admin.html" {
+	if name == "index.html" {
 
 		return x.blogAdminIndex.ExecuteTemplate(w, name, data)
 	}
@@ -123,7 +123,7 @@ func (x *tmplRenderer) Render(w io.Writer, name string, data any, c echo.Context
 
 func mustNewRenderer() echo.Renderer {
 
-	blogAdminIndex, err := template.New("blog-admin.html").Parse(webfs.MustBlogAdminIndexHTML())
+	blogAdminIndex, err := template.New("index.html").Parse(webfs.MustBlogAdminIndexHTML())
 
 	if err != nil {
 		panic(err)
@@ -142,6 +142,8 @@ func mustNewRenderer() echo.Renderer {
 func initDebugController(e *echo.Echo, _ service.AppService) {
 
 	e.GET(consts.PathBlogAdminPingDebugAPI, func(c echo.Context) error { return c.String(http.StatusOK, "pong") })
+	// publicly-available-no-sensitive-data
+	e.GET("/health", func(c echo.Context) error { return c.JSON(http.StatusOK, struct{}{}) })
 
 }
 

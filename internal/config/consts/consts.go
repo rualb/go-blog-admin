@@ -44,7 +44,7 @@ const (
 	PathBlogAdminAssets      = "/blog-admin/assets"
 	PathBlogAdminPosts       = "/blog-admin/posts"
 	PathBlogAdminPostsEntity = "/blog-admin/posts/:code" // GET
-	PathBlogAdminStatusAPI   = "/blog-admin/api/status"  // private
+	PathBlogAdminStatusAPI   = "/blog-admin/api/status"  // get _csrf, user related, no-cache
 	PathBlogAdminConfigAPI   = "/blog-admin/api/config"  // public
 
 	PathBlogAdminPostsAPI             = "/blog-admin/api/posts"            // LIST POST
