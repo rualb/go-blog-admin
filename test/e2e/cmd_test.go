@@ -33,25 +33,25 @@ func setup() {
 			&service.BlogPost{},
 		} {
 			if err := db.AutoMigrate(x); err != nil {
-				log.Fatalf("Migration: %v", err)
+				log.Fatalf("migration: %v", err)
 			}
 		}
 
 		// seed
 		{
 			key := &service.VaultKey{}
-			key.ID = "test-only-not-a-secret-key"
+			key.ID = "test-only-1"
 			key.AuthKey = base64.StdEncoding.EncodeToString([]byte(strings.Repeat("A", 64)))
 			// insert or update
 			if res := db.Save(key); res.Error != nil {
-				log.Fatalf("New vault key: %v", res.Error)
+				log.Fatalf("new vault key: %v", res.Error)
 			}
 		}
 	}
 }
 
 func TestMain(m *testing.M) {
-	fmt.Println("TestMain")
+	fmt.Println("testMain")
 	setup()
 	exitCode := m.Run()
 	os.Exit(exitCode)
@@ -69,9 +69,9 @@ func TestBlogAddData(t *testing.T) {
 	for i := 1; i < 199; i++ {
 		tmp := service.BlogPost{
 			Code:            fmt.Sprintf("test-post-%v", i),
-			Title:           fmt.Sprintf("Test post %v", i),
-			ContentMarkdown: fmt.Sprintf("Test post %v **Content**", i),
-			// ContentHTML: fmt.Sprintf("Test post %v <b>Content</b>", i),
+			Title:           fmt.Sprintf("test post %v", i),
+			ContentMarkdown: fmt.Sprintf("test post %v **Content**", i),
+			// ContentHTML: fmt.Sprintf("test post %v <b>Content</b>", i),
 		}
 
 		if id, _ := dao.Code(tmp.Code); id > 0 {
@@ -153,7 +153,7 @@ func TestBlogAdmin(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	//Authorization:Bearer jwt
+	// Authorization:Bearer jwt
 
 	{
 		srv := cmd.AppService
@@ -205,7 +205,7 @@ func TestBlogAdmin(t *testing.T) {
 		}
 
 		header := map[string]string{
-			"Authorization": "Bearer " + authToken,
+			`Authorization`: `Bearer ` + authToken,
 		}
 
 		urls := []struct {

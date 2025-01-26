@@ -4,6 +4,7 @@ import (
 	"go-blog-admin/internal/config"
 	controller "go-blog-admin/internal/controller"
 	"go-blog-admin/internal/util/utilaccess"
+	"go-blog-admin/internal/util/utilorm"
 	"go-blog-admin/internal/util/utilpaging"
 
 	"go-blog-admin/internal/i18n"
@@ -12,6 +13,27 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
+
+var blogPostOmitColumns = []string{
+	"content_markdown",
+	// "content_html",
+}
+
+var blogPostFieldOptions = utilorm.FieldOptions{
+	"code":             utilorm.ShortStringType,
+	"title":            utilorm.ShortStringType,
+	"content_markdown": utilorm.ShortStringType,
+	"is_published":     utilorm.BoolType,
+	"is_listed":        utilorm.BoolType,
+}
+
+var blogPostSortOptions = utilorm.SortOptions{
+	"":      "-id", // default
+	"id":    "id ASC",
+	"-id":   "id DESC",
+	"code":  "code ASC",
+	"-code": "code DESC",
+}
 
 type PostsDTO struct {
 	Input struct {
@@ -87,7 +109,7 @@ func (x *PostsAPIController) validateDTO() error {
 		return err
 	}
 
-	// input.Filter = c.QueryParams() //
+	input.LoadFilters(c.QueryParams()) //
 
 	return nil
 }
@@ -110,17 +132,13 @@ func (x *PostsAPIController) handleDTO() error {
 			bs.Posts().Permissions(x.userAccount, &output.Permissions)
 		}
 
-		omitColumns := []string{
-			"content_markdown",
-			// "content_html",
-		}
-		if err := bs.Posts().Query(&input.PagingInputDTO, &output.PagingOutputDTO, &omitColumns); err != nil {
+		if err := bs.Posts().Query(&input.PagingInputDTO, &output.PagingOutputDTO, blogPostOmitColumns, blogPostFieldOptions, blogPostSortOptions); err != nil {
 			return err
 		}
 
 	} else {
 		meta.Status = http.StatusMethodNotAllowed
-		output.Message = "Method action undef"
+		output.Message = "method action undef"
 	}
 
 	return nil

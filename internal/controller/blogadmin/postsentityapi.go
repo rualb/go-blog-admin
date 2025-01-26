@@ -276,7 +276,7 @@ func (x *PostsEntityAPIController) handleDTO() error {
 	default:
 		{
 			meta.Status = http.StatusMethodNotAllowed
-			output.Message = "Method action undef"
+			output.Message = "method action undef"
 		}
 	}
 

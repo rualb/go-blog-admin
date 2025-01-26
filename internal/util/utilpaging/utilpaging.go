@@ -1,27 +1,59 @@
 package utilpaging
 
+import (
+	"go-blog-admin/internal/util/utilconv"
+	"net/url"
+	"strings"
+)
+
+const filterPrefix = "filter_"
+
+type Filters map[string]string
+
 type PagingInputDTO struct {
-	Page   int    `query:"page"`
-	Sort   string `query:"sort"`
-	Search string `query:"search"`
-	Cursor string `query:"cursor"`
-	// Filter   map[string][]string //  c.QueryParams() ref
-	Limit int `query:"limit"`
+	Page    int     `query:"page"`
+	Sort    string  `query:"sort"`
+	Search  string  `query:"search"`
+	Cursor  string  `query:"cursor"`
+	Filters Filters `` // query:"filters"
+	Limit   int     `query:"limit"`
 }
 
-// func (x *PagingInputDTO) GetFilter(code string) string {
-// 	r := x.Filter[code]
-// 	if len(r) > 0 {
-// 		return r[0]
-// 	}
-// 	return ""
-// }
+//	func (x *PagingInputDTO) GetFilter(code string) string {
+//		r := x.Filter[code]
+//		if len(r) > 0 {
+//			return r[0]
+//		}
+//		return ""
+//	}
+func FilterParser(filters Filters, code string, parser utilconv.Parser) (value any, exists bool, err error) {
+	if filters != nil {
+		var valueStr string
+		valueStr, exists = filters[code]
+		if exists {
+			value, err = parser(valueStr)
+		}
+	}
+	return value, exists, err
+}
 
 func (x *PagingInputDTO) Info(totalCount int) *PagingInfo {
 
 	res := &PagingInfo{}
 	res.Fill(totalCount, x.Limit, x.Page)
 	return res
+}
+
+func (x *PagingInputDTO) LoadFilters(values url.Values) {
+
+	for k, v := range values {
+		if strings.HasPrefix(k, filterPrefix) && len(v) > 0 {
+			if x.Filters == nil {
+				x.Filters = Filters{}
+			}
+			x.Filters[k] = v[0]
+		}
+	}
 }
 
 // PagingInfo holds pagination information
@@ -117,12 +149,12 @@ func unique(intSlice []int) []int {
 
 type PagingOutputDTO[T any] struct {
 	Filter struct {
-		Page   int    `json:"page,omitempty"`
-		Sort   string `json:"sort,omitempty"`
-		Search string `json:"search,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-		// Filter     map[string][]string `json:"filter"`
-		Limit int `json:"limit,omitempty"`
+		Page    int     `json:"page,omitempty"`
+		Sort    string  `json:"sort,omitempty"`
+		Search  string  `json:"search,omitempty"`
+		Cursor  string  `json:"cursor,omitempty"`
+		Filters Filters `json:"filters,omitempty"`
+		Limit   int     `json:"limit,omitempty"`
 	} `json:"filter,omitempty"`
 
 	Info struct {
@@ -138,6 +170,7 @@ func (x *PagingOutputDTO[T]) Fill(filter *PagingInputDTO, info *PagingInfo) {
 	x.Filter.Limit = info.Limit
 	x.Filter.Sort = filter.Sort
 	x.Filter.Search = filter.Search
+	x.Filter.Filters = filter.Filters
 
 	//
 	// x.Cursor = info.Cursor

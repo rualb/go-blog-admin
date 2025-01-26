@@ -11,7 +11,7 @@ import (
 	"go-blog-admin/internal/config/consts"
 	"go-blog-admin/internal/service"
 	xtoken "go-blog-admin/internal/token"
-	"go-blog-admin/internal/util/utilstring"
+	"go-blog-admin/internal/util/utilhttp"
 	"net/http"
 	"strings"
 
@@ -26,24 +26,24 @@ const (
 	JwtKey = "_auth" // string value "auth"
 )
 
-func CsrfMiddleware(appService service.AppService) echo.MiddlewareFunc {
+// func CsrfMiddleware(appService service.AppService) echo.MiddlewareFunc {
 
-	csrfConfig := middleware.CSRFConfig{
-		Skipper: assetsReqSkipper,
+// 	csrfConfig := middleware.CSRFConfig{
+// 		Skipper: assetsReqSkipper,
 
-		TokenLookup: "header:X-CSRF-Token,form:_csrf",
-		CookiePath:  "/",
-		// CookieDomain:   "example.com",
-		// CookieSecure:   true, // https only
-		CookieHTTPOnly: true,
-		CookieName:     "_csrf",
-		ContextKey:     "_csrf",
-		CookieSameSite: http.SameSiteDefaultMode,
-	}
+// 		TokenLookup: "header:X-CSRF-Token,form:_csrf",
+// 		CookiePath:  "/",
+// 		// CookieDomain:   "example.com",
+// 		// CookieSecure:   true, // https only
+// 		CookieHTTPOnly: true,
+// 		CookieName:     "_csrf",
+// 		ContextKey:     "_csrf",
+// 		CookieSameSite: http.SameSiteDefaultMode,
+// 	}
 
-	return middleware.CSRFWithConfig(csrfConfig)
+// 	return middleware.CSRFWithConfig(csrfConfig)
 
-}
+// }
 
 func UserLangMiddleware(appService service.AppService) echo.MiddlewareFunc {
 
@@ -64,7 +64,9 @@ func UserLangMiddleware(appService service.AppService) echo.MiddlewareFunc {
 					lang = lang2.Value
 				} else {
 					// Fallback to the Accept-Language header
-					lang3 := c.Request().Header.Get("Accept-Language")
+					lang3 := c.Request().Header.Get(
+						`Accept-Language`,
+					)
 					if len(lang3) > 2 {
 						lang3 = lang3[:2]
 						if appService.HasLang(lang3) {
@@ -76,7 +78,7 @@ func UserLangMiddleware(appService service.AppService) echo.MiddlewareFunc {
 
 			c.Set("lang_code", lang)
 
-			c.Response().Header().Set("Content-Language", lang)
+			c.Response().Header().Set(`Content-Language`, lang)
 
 			return next(c)
 		}
@@ -109,7 +111,7 @@ func TokenParserMiddleware(appService service.AppService) echo.MiddlewareFunc {
 		SuccessHandler:         jwtParseSuccessHandler,
 		ErrorHandler:           jwtParseErrorHandler,
 		ContinueOnIgnoredError: true,
-		TokenLookup:            fmt.Sprintf("cookie:%s,header:Authorization:Bearer ", JwtKey), // "Authorization:Bearer jwt"
+		TokenLookup:            fmt.Sprintf(`cookie:%s,header:Authorization:Bearer `, JwtKey), // `Authorization:Bearer jwt`
 		NewClaimsFunc: func(c echo.Context) jwt.Claims {
 			return new(xtoken.TokenClaimsDTO)
 		},
@@ -155,7 +157,7 @@ func AuthorizeMiddlewareWithConfig(cfg AuthorizeMiddlewareConfig) echo.Middlewar
 
 					if cfg.Reddirect {
 						reqURI := c.Request().RequestURI // "/dashboard?view=weekly"
-						redirectURL := utilstring.AppendURL(cfg.ReddirectURL, "return_url", reqURI)
+						redirectURL := utilhttp.AppendURL(cfg.ReddirectURL, "next", reqURI)
 						return c.Redirect(http.StatusFound /*302*/, redirectURL)
 					} else {
 						return c.NoContent(http.StatusUnauthorized) // 401

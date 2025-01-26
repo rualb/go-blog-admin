@@ -3,6 +3,8 @@ package service
 import (
 	"go-blog-admin/internal/config/consts"
 	"go-blog-admin/internal/util/utilaccess"
+	"go-blog-admin/internal/util/utilorm"
+
 	"go-blog-admin/internal/util/utilpaging"
 	"time"
 )
@@ -17,6 +19,10 @@ type BlogPost struct {
 	Status    string    `json:"status" gorm:"size:255"`
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
+
+	IsPublished bool `json:"is_published,omitempty"` // Indicates whether the post is available for public use
+	IsListed    bool `json:"is_listed,omitempty"`    // Indicates whether the post is visible in the posts list // IsIndexed
+
 }
 
 func (x *BlogPost) Fill() {
@@ -36,55 +42,73 @@ func (x *BlogPostDAO) Permissions(userAccount *UserAccount, dto *utilaccess.Perm
 	dto.Fill(userAccount.Roles, consts.BlogRolePrefix)
 }
 
-func (x *BlogPostDAO) Where(filter *utilpaging.PagingInputDTO) (whereCondition string, whereArgs []any, err error) {
-	whereCondition = "1=1"
-	whereArgs = []any{}
+func (x *BlogPostDAO) Where(sql *utilorm.SQLBuilder,
+	filter *utilpaging.PagingInputDTO,
+	fieldOptions utilorm.FieldOptions,
+) (err error) {
 
-	if v := filter.Search; v != "" { // filter.GetFilter("text");
-		// content_markdown content_html
-		whereCondition += " and (title ilike ? or content_markdown ilike ?)" // " and (title ilike ? or content_markdown ilike ?)"
-		whereArgs = append(whereArgs, "%"+v+"%", "%"+v+"%")
+	if fieldOptions == nil {
+		return nil
 	}
 
-	if whereCondition == "1=1" {
-		whereCondition = ""
+	sql.WhereText.WriteString("1=1")
+
+	if err = utilorm.WhereSearch(sql, filter.Search, fieldOptions); err != nil {
+		return err
 	}
 
-	return whereCondition, whereArgs, err
+	if err = utilorm.WhereFromFilter(sql, filter, fieldOptions); err != nil {
+		return err
+	}
+
+	return err
 }
 
-func (x *BlogPostDAO) Sort(filter *utilpaging.PagingInputDTO) (sqlSort string, err error) {
+func (x *BlogPostDAO) Sort(
+	filter *utilpaging.PagingInputDTO,
+	sortOptions utilorm.SortOptions,
+) (sqlSort string, err error) {
 
-	sqlSort = "id desc"
-	switch filter.Sort {
-	case "-id":
-		sqlSort = "id desc"
-	case "id":
-		sqlSort = "id asc"
-	case "-code":
-		sqlSort = "code desc"
-	case "code":
-		sqlSort = "code asc"
-	default:
-		filter.Sort = "-id"
+	if filter.Sort == "" {
+		filter.Sort = sortOptions[""] // init default
+	}
+
+	sqlSort, ok := sortOptions[filter.Sort]
+	if !ok {
+		filter.Sort = sortOptions[""]
+		sqlSort = sortOptions[filter.Sort]
 	}
 
 	return sqlSort, err
 }
 
-func (x *BlogPostDAO) Query(filter *utilpaging.PagingInputDTO, output *utilpaging.PagingOutputDTO[BlogPost], omitColumns *[]string) (err error) {
+func (x *BlogPostDAO) Query(
+	filter *utilpaging.PagingInputDTO,
+	output *utilpaging.PagingOutputDTO[BlogPost],
+	omitColumns []string,
+	fieldOptions utilorm.FieldOptions,
+	sortOptions utilorm.SortOptions,
+) (err error) {
 
 	x.Check(filter)
 
 	repo := x.appService.Repository()
 
-	sqlWhere, sqlWhereArgs, _ := x.Where(filter)
-	sqlSort, _ := x.Sort(filter)
+	sql := &utilorm.SQLBuilder{}
 
+	err = x.Where(sql, filter, fieldOptions)
+	if err != nil {
+		return err
+	}
+
+	unsafeSQLSort, err := x.Sort(filter, sortOptions)
+	if err != nil {
+		return err
+	}
 	var count int64
 
 	err = repo.Model(&BlogPost{}).
-		Where(sqlWhere, sqlWhereArgs...).
+		Where(sql.WhereText.String(), sql.WhereArgs...).
 		Count(&count).Error
 
 	if err != nil {
@@ -96,13 +120,13 @@ func (x *BlogPostDAO) Query(filter *utilpaging.PagingInputDTO, output *utilpagin
 	output.Data = make([]*BlogPost, 0, info.Limit)
 
 	if omitColumns == nil {
-		omitColumns = &[]string{}
+		omitColumns = []string{}
 	}
 
 	err = repo.
-		Where(sqlWhere, sqlWhereArgs...).
-		Order(sqlSort).
-		Omit(*omitColumns...). // ContentMarkdown ContentHTML
+		Where(sql.WhereText.String(), sql.WhereArgs...).
+		Order(unsafeSQLSort).
+		Omit(omitColumns...). // ContentMarkdown ContentHTML
 		Limit(info.Limit).
 		Offset(info.Offset).
 		Find(&output.Data).Error
@@ -119,45 +143,45 @@ func (x *BlogPostDAO) FindByID(id int64) (*BlogPost, error) {
 		return nil, nil // fmt.Errorf("id cannot be empty")
 	}
 
-	user := new(BlogPost)
+	data := new(BlogPost)
 
-	result := x.appService.Repository().Find(user, "id = ?", id)
+	result := x.appService.Repository().Find(data, "id = ?", id)
 
 	if result.Error != nil || result.RowsAffected == 0 {
 		return nil, result.Error
 	}
 
-	return user, nil
+	return data, nil
 }
 func (x *BlogPostDAO) FindByCode(code string) (*BlogPost, error) {
 	if code == "" {
 		return nil, nil // fmt.Errorf("id cannot be empty")
 	}
 
-	user := new(BlogPost)
+	data := new(BlogPost)
 
-	result := x.appService.Repository().Find(user, "code = ?", code)
+	result := x.appService.Repository().Find(data, "code = ?", code)
 
 	if result.Error != nil || result.RowsAffected == 0 {
 		return nil, result.Error
 	}
 
-	return user, nil
+	return data, nil
 }
 func (x *BlogPostDAO) ID(id int64) (int64, error) {
 	if id == 0 {
 		return 0, nil // fmt.Errorf("id cannot be empty")
 	}
 
-	user := new(BlogPost)
+	data := new(BlogPost)
 
-	result := x.appService.Repository().Select("id").Limit(1).Find(user, "id = ? ", id)
+	result := x.appService.Repository().Select("id").Limit(1).Find(data, "id = ? ", id)
 
 	if result.Error != nil || result.RowsAffected == 0 {
 		return 0, result.Error
 	}
 
-	return user.ID, nil
+	return data.ID, nil
 }
 
 func (x *BlogPostDAO) Code(code string) (int64, error) {
@@ -165,15 +189,15 @@ func (x *BlogPostDAO) Code(code string) (int64, error) {
 		return 0, nil // fmt.Errorf("id cannot be empty")
 	}
 
-	user := new(BlogPost)
+	data := new(BlogPost)
 
-	result := x.appService.Repository().Select("id").Find(user, "code = ?", code)
+	result := x.appService.Repository().Select("id").Find(data, "code = ?", code)
 
 	if result.Error != nil || result.RowsAffected == 0 {
 		return 0, result.Error
 	}
 
-	return user.ID, nil
+	return data.ID, nil
 }
 
 func (x *BlogPostDAO) Create(data *BlogPost) error {
